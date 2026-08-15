@@ -1,0 +1,372 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>PLSV · Tablero de Avance</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Oswald:wght@400;500;600;700&family=Inter:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --asphalt:#15181c;
+    --asphalt-2:#1d2125;
+    --lane:#2a2f35;
+    --lane-soft:#33393f;
+    --paper:#f4f1e8;
+    --paper-dim:#c9c4b6;
+    --yellow:#ffc530;
+    --amber:#f2994a;
+    --green:#34a874;
+    --red:#e5595d;
+    --blue:#5aa9e6;
+    font-size:16px;
+  }
+  *{box-sizing:border-box;}
+  body{
+    margin:0;
+    background:radial-gradient(circle at 15% 0%, #23272c 0%, var(--asphalt) 55%), var(--asphalt);
+    color:var(--paper);
+    font-family:'Inter',sans-serif;
+    min-height:100vh;
+    padding:28px clamp(14px,3vw,40px) 60px;
+  }
+
+  .gantry{
+    background:linear-gradient(180deg,#20242a,#191c20);
+    border:1px solid #34393f;border-top:6px solid var(--yellow);border-radius:10px;
+    padding:18px 24px;display:flex;justify-content:space-between;align-items:flex-start;gap:20px;flex-wrap:wrap;
+    box-shadow:0 12px 30px -18px rgba(0,0,0,.7);
+  }
+  .gantry-left{display:flex;align-items:center;gap:16px;}
+  .badge{width:46px;height:46px;border-radius:8px;background:repeating-linear-gradient(45deg,var(--yellow) 0 8px,#1b1b1b 8px 16px);display:flex;align-items:center;justify-content:center;flex:none;}
+  .badge svg{width:24px;height:24px;}
+  .gantry h1{font-family:'Oswald',sans-serif;font-weight:700;letter-spacing:.03em;font-size:1.5rem;margin:0 0 2px;text-transform:uppercase;}
+  .gantry p{margin:0;color:var(--paper-dim);font-size:.85rem;}
+  .clockbox{font-family:'IBM Plex Mono',monospace;text-align:right;}
+  .clockbox .time{font-size:1.6rem;color:var(--yellow);letter-spacing:.05em;}
+  .clockbox .date{font-size:.78rem;color:var(--paper-dim);text-transform:capitalize;}
+
+  .route-panel{margin-top:18px;background:var(--asphalt-2);border:1px solid #2c3136;border-radius:10px;padding:18px 22px 22px;}
+  .route-head{display:flex;justify-content:space-between;align-items:baseline;margin-bottom:10px;flex-wrap:wrap;gap:8px;}
+  .route-head h2{font-family:'Oswald',sans-serif;font-size:.95rem;letter-spacing:.08em;text-transform:uppercase;color:var(--paper-dim);margin:0;}
+  .route-head .pct{font-family:'IBM Plex Mono',monospace;font-size:1.3rem;color:var(--green);font-weight:600;}
+  .road{position:relative;height:34px;background:var(--lane);border-radius:6px;overflow:hidden;border:1px solid #383e45;}
+  .road::before{content:"";position:absolute;top:50%;left:0;right:0;height:0;border-top:3px dashed #55606a;transform:translateY(-50%);}
+  .road-fill{position:absolute;top:0;left:0;bottom:0;background:linear-gradient(90deg,#2f8f61,var(--green));width:0%;transition:width .6s cubic-bezier(.4,0,.2,1);border-radius:6px 0 0 6px;}
+  .road-car{position:absolute;top:50%;transform:translate(-50%,-50%);font-size:18px;transition:left .6s cubic-bezier(.4,0,.2,1);filter:drop-shadow(0 2px 3px rgba(0,0,0,.5));}
+  .stats-row{display:flex;gap:14px;margin-top:14px;flex-wrap:wrap;}
+  .stat{font-family:'IBM Plex Mono',monospace;font-size:.75rem;color:var(--paper-dim);display:flex;align-items:center;gap:6px;}
+  .dot{width:8px;height:8px;border-radius:50%;display:inline-block;}
+  .wip{margin-top:10px;font-size:.72rem;color:var(--amber);font-family:'IBM Plex Mono',monospace;}
+  .hint{margin-top:6px;font-size:.72rem;color:var(--paper-dim);font-style:italic;}
+
+  .board{margin-top:22px;display:grid;grid-template-columns:repeat(4,1fr);gap:16px;}
+  @media (max-width:980px){ .board{grid-template-columns:1fr 1fr;} }
+  @media (max-width:620px){ .board{grid-template-columns:1fr;} }
+
+  .col{background:var(--asphalt-2);border:1px solid #2c3136;border-radius:10px;padding:12px;min-height:120px;display:flex;flex-direction:column;}
+  .col-head{display:flex;align-items:center;justify-content:space-between;padding:6px 6px 12px;border-bottom:2px dashed #383e45;margin-bottom:10px;}
+  .col-head .name{font-family:'Oswald',sans-serif;font-size:.82rem;letter-spacing:.07em;text-transform:uppercase;display:flex;align-items:center;gap:8px;}
+  .col-head .count{font-family:'IBM Plex Mono',monospace;background:var(--lane-soft);color:var(--paper);font-size:.75rem;padding:2px 8px;border-radius:20px;}
+  .col-head .count.over{background:var(--red);color:#2a0d0d;}
+  .sign-pendiente{color:var(--paper-dim);}
+  .sign-curso{color:var(--amber);}
+  .sign-revision{color:var(--blue);}
+  .sign-hecha{color:var(--green);}
+  .wip-limit{font-family:'IBM Plex Mono',monospace;font-size:.6rem;color:var(--paper-dim);text-align:right;margin-bottom:8px;}
+
+  .cards{flex:1;display:flex;flex-direction:column;gap:10px;min-height:60px;}
+  .col.drop-hover{outline:2px dashed var(--yellow);outline-offset:-4px;border-radius:8px;}
+
+  .card{background:var(--paper);color:#242220;border-radius:8px;padding:11px 12px 10px;cursor:grab;border-left:5px solid var(--paper-dim);box-shadow:0 6px 14px -8px rgba(0,0,0,.6);font-size:.83rem;}
+  .card:active{cursor:grabbing;}
+  .card.dragging{opacity:.4;}
+  .card.fase-1{border-left-color:#8a8578;}
+  .card.fase-2{border-left-color:var(--blue);}
+  .card.fase-3{border-left-color:var(--amber);}
+  .card.fase-4{border-left-color:var(--green);}
+  .card .tag{font-family:'IBM Plex Mono',monospace;font-size:.63rem;text-transform:uppercase;letter-spacing:.03em;color:#6b6558;margin-bottom:4px;display:flex;justify-content:space-between;gap:6px;}
+  .card .tag .fase{color:#a39c8a;}
+  .card .title{font-weight:600;line-height:1.3;margin-bottom:8px;}
+  .card .meta{display:flex;justify-content:space-between;align-items:center;font-size:.7rem;color:#7a7566;}
+  .avatar{min-width:20px;height:20px;padding:0 6px;border-radius:10px;background:#3a3f36;color:#f4f1e8;display:inline-flex;align-items:center;justify-content:center;font-size:.6rem;font-weight:700;font-family:'IBM Plex Mono',monospace;letter-spacing:.02em;}
+
+
+  .scrum-panel{margin-top:22px;background:var(--asphalt-2);border:1px solid #2c3136;border-radius:10px;padding:18px 22px 22px;}
+  .scrum-panel h2{font-family:'Oswald',sans-serif;font-size:.95rem;letter-spacing:.08em;text-transform:uppercase;color:var(--paper-dim);margin:0 0 4px;}
+  .scrum-panel > p.lead{margin:0 0 16px;font-size:.75rem;color:var(--paper-dim);}
+  .scrum-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:14px;margin-bottom:18px;}
+  .scrum-card{background:var(--lane);border:1px solid #383e45;border-radius:8px;padding:12px 14px;}
+  .scrum-card h3{font-family:'Oswald',sans-serif;font-size:.72rem;letter-spacing:.06em;text-transform:uppercase;color:var(--yellow);margin:0 0 8px;}
+  .scrum-card p, .scrum-card li{font-size:.74rem;color:var(--paper-dim);line-height:1.5;margin:0 0 4px;}
+  .scrum-card ul{margin:0;padding-left:16px;}
+  .role-legend{display:flex;flex-wrap:wrap;gap:8px;margin-top:8px;}
+  .role-legend span{font-family:'IBM Plex Mono',monospace;font-size:.65rem;background:var(--lane-soft);color:var(--paper);padding:3px 8px;border-radius:20px;}
+  .raci-table{width:100%;border-collapse:collapse;font-size:.72rem;}
+  .raci-table th, .raci-table td{border:1px solid #383e45;padding:6px 8px;text-align:left;color:var(--paper-dim);}
+  .raci-table th{color:var(--paper);font-family:'IBM Plex Mono',monospace;text-transform:uppercase;letter-spacing:.03em;font-size:.63rem;background:var(--lane);}
+  .story{background:var(--lane);border-left:3px solid var(--blue);border-radius:6px;padding:9px 12px;margin-bottom:8px;font-size:.75rem;color:var(--paper-dim);}
+  .story b{color:var(--paper);}
+  .ceremony-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:12px;}
+  .ceremony-grid .scrum-card{border-top:3px solid var(--green);}
+  .log-panel{margin-top:22px;background:var(--asphalt-2);border:1px solid #2c3136;border-radius:10px;padding:16px 20px;}
+  .log-panel h2{font-family:'Oswald',sans-serif;font-size:.85rem;letter-spacing:.08em;text-transform:uppercase;color:var(--paper-dim);margin:0 0 12px;}
+  #log{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:8px;max-height:180px;overflow-y:auto;}
+  #log li{font-family:'IBM Plex Mono',monospace;font-size:.75rem;color:var(--paper-dim);display:flex;gap:10px;}
+  #log li .t{color:var(--yellow);flex:none;}
+  ::-webkit-scrollbar{width:8px;}
+  ::-webkit-scrollbar-thumb{background:#3a4046;border-radius:4px;}
+</style>
+</head>
+<body>
+
+  <header class="gantry">
+    <div class="gantry-left">
+      <div class="badge"><svg viewBox="0 0 24 24" fill="none" stroke="#1b1b1b" stroke-width="2"><path d="M3 12h18M3 12l4-4M3 12l4 4"/></svg></div>
+      <div>
+        <h1>PLSV · Tablero de Avance</h1>
+        <p>Formulación del Plan Local de Seguridad Vial — foco actual: Fase 2, diagnóstica</p>
+      </div>
+    </div>
+    <div class="clockbox">
+      <div class="time" id="clock">--:--:--</div>
+      <div class="date" id="datestr">-- de -- de ----</div>
+    </div>
+  </header>
+
+  <section class="route-panel">
+    <div class="route-head">
+      <h2>Avance global del diseño del PLSV</h2>
+      <span class="pct" id="pctLabel">0%</span>
+    </div>
+    <div class="road">
+      <div class="road-fill" id="roadFill"></div>
+      <div class="road-car" id="roadCar" style="left:0%">🚙</div>
+    </div>
+    <div class="stats-row">
+      <span class="stat"><span class="dot" style="background:var(--paper-dim)"></span>Pendiente: <b id="cnt-pendiente">0</b></span>
+      <span class="stat"><span class="dot" style="background:var(--amber)"></span>En curso: <b id="cnt-curso">0</b></span>
+      <span class="stat"><span class="dot" style="background:var(--blue)"></span>En revisión: <b id="cnt-revision">0</b></span>
+      <span class="stat"><span class="dot" style="background:var(--green)"></span>Hecha: <b id="cnt-hecha">0</b></span>
+    </div>
+    <p class="wip">Límite de trabajo en curso (WIP): máx. 3 tareas simultáneas en "En curso".</p>
+    <p class="hint">Arrastra las tarjetas entre columnas para simular el avance. Cada una indica su fase de origen (F1-F4).</p>
+  </section>
+
+  <section class="board" id="board">
+    <div class="col" data-col="pendiente">
+      <div class="col-head"><span class="name sign-pendiente">▢ Pendiente</span><span class="count" id="head-pendiente">0</span></div>
+      <div class="cards" id="cards-pendiente"></div>
+    </div>
+    <div class="col" data-col="curso">
+      <div class="col-head"><span class="name sign-curso">◐ En curso</span><span class="count" id="head-curso">0</span></div>
+      <div class="wip-limit">WIP máx. 3</div>
+      <div class="cards" id="cards-curso"></div>
+    </div>
+    <div class="col" data-col="revision">
+      <div class="col-head"><span class="name sign-revision">◎ En revisión</span><span class="count" id="head-revision">0</span></div>
+      <div class="cards" id="cards-revision"></div>
+    </div>
+    <div class="col" data-col="hecha">
+      <div class="col-head"><span class="name sign-hecha">✓ Hecha</span><span class="count" id="head-hecha">0</span></div>
+      <div class="cards" id="cards-hecha"></div>
+    </div>
+  </section>
+
+  <section class="log-panel">
+    <h2>Historial de actividad</h2>
+    <ul id="log"></ul>
+  </section>
+
+  <section class="scrum-panel">
+    <h2>Marco Scrum del proyecto</h2>
+    <p class="lead">Parámetros ágiles usados para configurar este tablero — enlazados con la Matriz RACI del proyecto "Creación de Planes Locales de Seguridad Vial en Colombia" (ID CI-024-2025).</p>
+
+    <div class="scrum-grid">
+      <div class="scrum-card">
+        <h3>Tipo de actividades</h3>
+        <ul>
+          <li>Alistamiento e institucionales (Fase 1)</li>
+          <li>Recolección y análisis técnico (Fase 2)</li>
+          <li>Formulación y aprobación documental (Fase 3)</li>
+          <li>Divulgación y cierre (Fase 4)</li>
+        </ul>
+      </div>
+      <div class="scrum-card">
+        <h3>Plazos de entrega</h3>
+        <ul>
+          <li>Fase 1 — superada</li>
+          <li>Fase 2 (diagnóstica): semanas 1-4</li>
+          <li>Fase 3 (documento y aprobación): semanas 5-10</li>
+          <li>Fase 4 (cierre): semanas 11-12</li>
+        </ul>
+      </div>
+      <div class="scrum-card">
+        <h3>Roles Scrum</h3>
+        <ul>
+          <li><b>Product Owner:</b> Director del Proyecto (DP)</li>
+          <li><b>Scrum Master:</b> Líder Regional (LR)</li>
+          <li><b>Equipo de desarrollo:</b> ESV, ING, PSI, TC, CONT, AA</li>
+        </ul>
+      </div>
+      <div class="scrum-card">
+        <h3>Duración del sprint</h3>
+        <p>2 semanas por sprint — 6 sprints en total (ampliable a 8 si se demora la aprobación del ministerio supervisor).</p>
+      </div>
+    </div>
+
+    <div class="scrum-grid" style="grid-template-columns:1fr;">
+      <div class="scrum-card">
+        <h3>Responsables de las actividades (Matriz RACI)</h3>
+        <div class="role-legend">
+          <span>DP = Director del Proyecto</span>
+          <span>LR = Líder Regional</span>
+          <span>ESV = Experto en Seguridad Vial</span>
+          <span>ING = Ingeniero</span>
+          <span>PSI = Psicólogo</span>
+          <span>TC = Trabajadores de Campo</span>
+          <span>CONT = Contador</span>
+          <span>AA = Auxiliar Administrativo</span>
+        </div>
+        <table class="raci-table" style="margin-top:12px;">
+          <tr><th>EDT</th><th>Entregable</th><th>Responsable</th><th>Aprueba</th></tr>
+          <tr><td>1.1-1.3</td><td>Plan de trabajo, actas, cronograma</td><td>AA / LR</td><td>DP / LR</td></tr>
+          <tr><td>2.1-2.6</td><td>Diagnóstico de seguridad vial</td><td>ESV / TC / ING</td><td>DP / ESV</td></tr>
+          <tr><td>3.1-3.4</td><td>Documento técnico PLSV</td><td>ESV / ING</td><td>DP / ESV</td></tr>
+          <tr><td>4.1-4.5</td><td>Socialización y cierre</td><td>LR / TC / ING</td><td>DP / LR</td></tr>
+          <tr><td>5.1-5.3</td><td>Cierre administrativo</td><td>CONT / AA / DP</td><td>DP</td></tr>
+        </table>
+      </div>
+    </div>
+
+    <div class="scrum-grid" style="grid-template-columns:1fr;">
+      <div class="scrum-card">
+        <h3>Historias de usuario</h3>
+        <div class="story">Como <b>Experto en Seguridad Vial (ESV)</b>, quiero validar el diagnóstico con la ANSV, para asegurar que cumpla los criterios técnicos exigidos a un PLSV.</div>
+        <div class="story">Como <b>Ingeniero (ING)</b>, quiero consolidar la información de campo, para construir un análisis técnico confiable del diagnóstico.</div>
+        <div class="story">Como <b>Director del Proyecto (DP)</b>, quiero radicar el documento técnico ante el ministerio supervisor, para obtener la aprobación oficial del PLSV.</div>
+        <div class="story">Como <b>ciudadano del municipio</b>, quiero conocer el PLSV aprobado mediante infografías, para entender las medidas que me afectan como actor vial.</div>
+      </div>
+    </div>
+
+    <div class="ceremony-grid">
+      <div class="scrum-card">
+        <h3>Planificación del sprint</h3>
+        <p>Al inicio de cada sprint (2 semanas), el Product Owner (DP) prioriza el backlog y el equipo selecciona las tarjetas que pasan a "En curso", respetando el límite WIP de 3.</p>
+      </div>
+      <div class="scrum-card">
+        <h3>Revisión del sprint</h3>
+        <p>Al cierre del sprint se presenta el incremento (ej. avance del diagnóstico) al Comité Local de Seguridad Vial para retroalimentación directa.</p>
+      </div>
+      <div class="scrum-card">
+        <h3>Retrospectiva</h3>
+        <p>El equipo evalúa qué funcionó y qué ajustar (ej. tiempos de respuesta de la ANSV) antes de iniciar el siguiente sprint.</p>
+      </div>
+    </div>
+  </section>
+
+<script>
+const colNames = {pendiente:'Pendiente', curso:'En curso', revision:'En revisión', hecha:'Hecha'};
+const WIP_LIMIT = 3;
+
+// Fase 2 (diagnóstica) profundizada en subtareas; el resto de fases quedan resumidas
+let cards = [
+  // Fase 1 — superada, todo en Hecha
+  {id:1, fase:1, col:'hecha', tag:'Alistamiento', title:'Empalme con la administración municipal y revisión de PLSV previos', who:'LR', due:'Ene 8'},
+  {id:2, fase:1, col:'hecha', tag:'Institucional', title:'Conformación y acta de instalación del Comité Local de Seguridad Vial', who:'LR', due:'Ene 15'},
+  {id:3, fase:1, col:'hecha', tag:'Planeación', title:'Cronograma y ruta metodológica del PLSV', who:'AA', due:'Ene 20'},
+
+  // Fase 2 — diagnóstica, profundizada
+  {id:4, fase:2, col:'hecha', tag:'Recolección', title:'Recolección de información de siniestralidad vial (2021-2025)', who:'TC', due:'Feb 5'},
+  {id:5, fase:2, col:'curso', tag:'Recolección', title:'Levantamiento de inventario vial y puntos críticos', who:'ING', due:'Feb 12'},
+  {id:6, fase:2, col:'curso', tag:'Análisis', title:'Análisis estadístico de víctimas por actor vial y franja horaria', who:'ING', due:'Feb 20'},
+  {id:7, fase:2, col:'curso', tag:'Análisis', title:'Georreferenciación de corredores con mayor accidentalidad', who:'ING', due:'Feb 25'},
+  {id:8, fase:2, col:'revision', tag:'Validación', title:'Validación del diagnóstico con la ANSV, como ente supervisor del PLSV', who:'ESV', due:'Mar 1'},
+  {id:9, fase:2, col:'revision', tag:'Socialización', title:'Mesa de socialización del diagnóstico con actores comunitarios', who:'TC', due:'Mar 3'},
+  {id:10, fase:2, col:'pendiente', tag:'Análisis', title:'Encuesta de percepción ciudadana sobre riesgo vial', who:'TC', due:'Mar 6'},
+  {id:11, fase:2, col:'pendiente', tag:'Análisis', title:'Cruce de información con bases RUNT y SIMIT', who:'ING', due:'Mar 8'},
+
+  // Fase 3 — resumida
+  {id:12, fase:3, col:'pendiente', tag:'Formulación', title:'Redacción del documento técnico del PLSV', who:'ING', due:'Mar 20'},
+  {id:13, fase:3, col:'pendiente', tag:'Aprobación', title:'Aval del Comité Local de Seguridad Vial', who:'ESV', due:'Mar 28'},
+  {id:14, fase:3, col:'pendiente', tag:'Aprobación', title:'Radicación ante el ministerio supervisor (Mintransporte/ANSV)', who:'DP', due:'Abr 10'},
+
+  // Fase 4 — resumida
+  {id:15, fase:4, col:'pendiente', tag:'Divulgación', title:'Diseño de infografías y piezas de divulgación del PLSV', who:'TC', due:'Abr 22'},
+  {id:16, fase:4, col:'pendiente', tag:'Cierre', title:'Informe final de formulación entregado a la ANSV', who:'DP', due:'May 2'},
+];
+
+const logEl = document.getElementById('log');
+
+function addLog(text){
+  const li = document.createElement('li');
+  const now = new Date();
+  const t = now.toLocaleTimeString('es-CO',{hour:'2-digit',minute:'2-digit'});
+  li.innerHTML = `<span class="t">${t}</span><span>${text}</span>`;
+  logEl.prepend(li);
+}
+
+function render(){
+  ['pendiente','curso','revision','hecha'].forEach(col=>{
+    const wrap = document.getElementById('cards-'+col);
+    wrap.innerHTML = '';
+    const inCol = cards.filter(c=>c.col===col);
+    const headEl = document.getElementById('head-'+col);
+    headEl.textContent = inCol.length;
+    headEl.classList.toggle('over', col==='curso' && inCol.length > WIP_LIMIT);
+    document.getElementById('cnt-'+col).textContent = inCol.length;
+    inCol.forEach(c=>{
+      const div = document.createElement('div');
+      div.className = 'card fase-'+c.fase;
+      div.draggable = true;
+      div.dataset.id = c.id;
+      div.innerHTML = `
+        <span class="tag"><span>${c.tag}</span><span class="fase">F${c.fase}</span></span>
+        <div class="title">${c.title}</div>
+        <div class="meta"><span>📅 ${c.due}</span><span class="avatar">${c.who}</span></div>
+      `;
+      div.addEventListener('dragstart', e=>{ div.classList.add('dragging'); e.dataTransfer.setData('text/plain', c.id); });
+      div.addEventListener('dragend', ()=> div.classList.remove('dragging'));
+      wrap.appendChild(div);
+    });
+  });
+
+  const total = cards.length;
+  const done = cards.filter(c=>c.col==='hecha').length;
+  const pct = total ? Math.round((done/total)*100) : 0;
+  document.getElementById('pctLabel').textContent = pct+'%';
+  document.getElementById('roadFill').style.width = pct+'%';
+  document.getElementById('roadCar').style.left = Math.min(pct,97)+'%';
+}
+
+document.querySelectorAll('.col').forEach(col=>{
+  col.addEventListener('dragover', e=>{ e.preventDefault(); col.classList.add('drop-hover'); });
+  col.addEventListener('dragleave', ()=> col.classList.remove('drop-hover'));
+  col.addEventListener('drop', e=>{
+    e.preventDefault();
+    col.classList.remove('drop-hover');
+    const id = Number(e.dataTransfer.getData('text/plain'));
+    const target = col.dataset.col;
+    const card = cards.find(c=>c.id===id);
+    if(card && card.col !== target){
+      const from = colNames[card.col];
+      card.col = target;
+      addLog(`"${card.title.slice(0,40)}${card.title.length>40?'…':''}" movida de <b>${from}</b> a <b>${colNames[target]}</b>`);
+      render();
+    }
+  });
+});
+
+function tickClock(){
+  const now = new Date();
+  document.getElementById('clock').textContent = now.toLocaleTimeString('es-CO',{hour12:false});
+  document.getElementById('datestr').textContent = now.toLocaleDateString('es-CO', {day:'numeric', month:'long', year:'numeric'});
+}
+tickClock();
+setInterval(tickClock, 1000);
+
+addLog('Tablero de avance inicializado — foco en la fase diagnóstica (F2)');
+render();
+</script>
+</body>
+</html>
